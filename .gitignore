@@ -1,0 +1,13 @@
+# IntelliJ
+.idea
+*.iml
+
+# Python
+venv
+.env
+
+# Application files
+backup
+duplicate_files.tsv
+*.txt
+*.xlsx
