@@ -1,13 +1,20 @@
-# IntelliJ
-.idea
+# Editors
+.idea/
 *.iml
+.vscode/
+.DS_Store
 
 # Python
-venv
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
 .env
 
-# Application files
-backup
-duplicate_files.tsv
-*.txt
+# Tool output
+/backup/
+/duplicate_files.tsv
+/*-dropbox-duplicates-*.txt
+/rclone-duplicates.txt
 *.xlsx
