@@ -1,0 +1,32 @@
+name: CI
+on:
+  push:
+    branches: [main]
+  pull_request:
+permissions:
+  contents: read
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+jobs:
+  test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-dev.txt
+      - run: python -m pip install -r requirements-dev.txt
+      - run: python -m pytest tests
+      - name: Run the documented synthetic example
+        run: |
+          cp examples/duplicate_files.tsv examples/rclone-duplicates.txt .
+          python3 reformat.py
+          python3 reformat_rclone.py
+          grep -F 'img_0001.jpg§/photos/2024/img_0001.jpg§/photos/img_0001.jpg' ./*-dropbox-duplicates-formatted.txt
+          grep -F 'img_0001.jpg§photos/2024/img_0001.jpg§photos/img_0001.jpg' ./*-dropbox-duplicates-rclone-formatted.txt
