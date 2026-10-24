@@ -18,32 +18,30 @@ def test_reformat_groups_duplicates_by_folder(tmp_path):
         "duplicate copies§folder size of duplicate files§folder size including all duplicate copies"
     )
     gib = 1024**3
+    archive = f"/archive§1§1§{512 / gib} GB§{512 / gib} GB"
+    backup = f"/backup§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
+    documents = f"/documents§1§1§{512 / gib} GB§{512 / gib} GB"
+    photos = f"/photos§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
+    photos_2024 = f"/photos/2024§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
     assert output.read_text().splitlines() == [
         header,
-        f"/archive§1§1§{512 / gib} GB§{512 / gib} GB",
+        archive,
         "report.pdf§/documents/report.pdf",
         "---",
-        f"/backup§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
+        backup,
         "img_0001.jpg§/photos/2024/img_0001.jpg§/photos/img_0001.jpg",
         "---",
-        f"/documents§1§1§{512 / gib} GB§{512 / gib} GB",
+        documents,
         "report.pdf§/archive/report.pdf",
         "---",
-        f"/photos§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
+        photos,
         "img_0001.jpg§/backup/img_0001.jpg§/photos/2024/img_0001.jpg",
         "---",
-        f"/photos/2024§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
+        photos_2024,
         "img_0001.jpg§/backup/img_0001.jpg§/photos/img_0001.jpg",
         "---",
     ]
-    assert summary.read_text().splitlines() == [
-        header,
-        f"/archive§1§1§{512 / gib} GB§{512 / gib} GB",
-        f"/backup§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
-        f"/documents§1§1§{512 / gib} GB§{512 / gib} GB",
-        f"/photos§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
-        f"/photos/2024§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB",
-    ]
+    assert summary.read_text().splitlines() == [header, archive, backup, documents, photos, photos_2024]
 
 
 def test_reformat_rclone_groups_duplicates_by_folder(tmp_path):
