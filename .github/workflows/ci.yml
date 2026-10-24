@@ -23,10 +23,12 @@ jobs:
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
       - run: python -m pytest tests
+      # The tests check the output, so this step only runs the README example end to end.
       - name: Run the documented synthetic example
         run: |
           cp examples/duplicate_files.tsv examples/rclone-duplicates.txt .
           python3 reformat.py
           python3 reformat_rclone.py
-          grep -F 'img_0001.jpg§/photos/2024/img_0001.jpg§/photos/img_0001.jpg' ./*-dropbox-duplicates-formatted.txt
-          grep -F 'img_0001.jpg§photos/2024/img_0001.jpg§photos/img_0001.jpg' ./*-dropbox-duplicates-rclone-formatted.txt
+          for output in ./*-dropbox-duplicates-formatted.txt ./*-dropbox-duplicates-formatted-summary.txt ./*-dropbox-duplicates-rclone-formatted.txt; do
+            test -s "$output"
+          done
