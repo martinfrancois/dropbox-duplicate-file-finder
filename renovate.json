@@ -52,15 +52,6 @@
       "automerge": true
     },
     {
-      "matchManagers": [
-        "pep621"
-      ],
-      "matchDepTypes": [
-        "build-system.requires"
-      ],
-      "rangeStrategy": "bump"
-    },
-    {
       "matchUpdateTypes": [
         "major"
       ],
