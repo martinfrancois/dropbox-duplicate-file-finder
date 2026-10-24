@@ -6,6 +6,16 @@ import reformat_rclone
 ROOT = Path(__file__).resolve().parent.parent
 EXAMPLES = ROOT / "examples"
 
+GIB = 1024**3
+# Sizes of the two duplicated files in examples/duplicate_files.tsv.
+IMAGE_SIZE = 2048
+REPORT_SIZE = 512
+
+
+def folder_line(folder, file_size, copies):
+    # Every folder in the example holds one duplicated file, so its line counts that file once.
+    return f"{folder}§1§{copies}§{file_size / GIB} GB§{copies * file_size / GIB} GB"
+
 
 def test_reformat_groups_duplicates_by_folder(tmp_path):
     output = tmp_path / "formatted.txt"
@@ -17,12 +27,11 @@ def test_reformat_groups_duplicates_by_folder(tmp_path):
         "path to folder§amount of duplicate files in folder§duplicate file count including all "
         "duplicate copies§folder size of duplicate files§folder size including all duplicate copies"
     )
-    gib = 1024**3
-    archive = f"/archive§1§1§{512 / gib} GB§{512 / gib} GB"
-    backup = f"/backup§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
-    documents = f"/documents§1§1§{512 / gib} GB§{512 / gib} GB"
-    photos = f"/photos§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
-    photos_2024 = f"/photos/2024§1§2§{2048 / gib} GB§{2 * 2048 / gib} GB"
+    archive = folder_line("/archive", REPORT_SIZE, copies=1)
+    backup = folder_line("/backup", IMAGE_SIZE, copies=2)
+    documents = folder_line("/documents", REPORT_SIZE, copies=1)
+    photos = folder_line("/photos", IMAGE_SIZE, copies=2)
+    photos_2024 = folder_line("/photos/2024", IMAGE_SIZE, copies=2)
     assert output.read_text().splitlines() == [
         header,
         archive,
