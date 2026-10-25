@@ -23,10 +23,9 @@ pip3 install -r requirements.txt
 
 3. Add the details of the app and the tokens to a `.env` file in the root of the project, by copying the `.env.template` file and filling in the details. `DROPBOX_OAUTH2_ACCESS_TOKEN_EXPIRATION` is an ISO 8601 timestamp such as `2026-01-31T12:00:00`.
 
-4. Create the folder for the state files and run the script:
+4. Run the script. It creates the folder for its state files:
 
 ```
-mkdir -p backup
 python3 __init__.py
 ```
 
@@ -59,7 +58,7 @@ The tests run `__init__.py` against a fake Dropbox client, so they need no accou
 
 - The script always walks the whole account from the root. To limit it to a folder, change `get_all_files("")` at the bottom of `__init__.py`.
 - After an error, the script starts the walk again from the root but keeps the files it already collected. Those files then show up as duplicates of themselves, in groups whose paths are all the same, so run the script again if the log shows an `An error (...) occurred, retrying` line. Rate limits do not cause this, because the Dropbox SDK waits and retries them itself. An API error, such as an invalid path, stops the script with an `AttributeError`. Tracked in [#3](https://github.com/martinfrancois/dropbox-duplicate-file-finder/issues/3).
-- Without the `backup/` folder, the script walks the account five times and ends with `Maximum number of retries (5) exceeded`. Nothing reads the backup files back in, so a crash after the last page loses the run. Tracked in [#4](https://github.com/martinfrancois/dropbox-duplicate-file-finder/issues/4).
+- Nothing reads the backup files back in, so a crash after the last page loses the run.
 - `reformat.py` writes sizes in GB as unrounded numbers.
 - A path that contains `§` breaks the columns of the reformatted output.
 

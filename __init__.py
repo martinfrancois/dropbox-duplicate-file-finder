@@ -160,6 +160,8 @@ def retry_with_backoff(fn, retries=5, backoff_in_seconds=1):
     raise Exception(f"Maximum number of retries ({retries}) exceeded")
 
 
+os.makedirs("backup", exist_ok=True)
+
 # Get all the files in the root folder using retry with exponential backoff
 retry_with_backoff(lambda: get_all_files(""))
 
