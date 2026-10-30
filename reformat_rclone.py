@@ -1,3 +1,5 @@
+import csv
+
 from collections import defaultdict
 from datetime import datetime
 
@@ -6,10 +8,10 @@ def process_duplicate_files(input_file, output_file):
     hash_dict = defaultdict(list)
 
     # Read input file and populate the hash_dict
-    with open(input_file, 'r') as f:
+    with open(input_file, encoding="utf-8", newline="") as f:
         for line in f:
             # Split by two spaces
-            hash_value, file_path = line.strip().split('  ', 1)
+            hash_value, file_path = line.rstrip('\r\n').split('  ', 1)
             hash_dict[hash_value].append(file_path)
 
     folder_path_files_dict = {}
@@ -35,14 +37,15 @@ def process_duplicate_files(input_file, output_file):
             else:
                 folder_path_files_dict[folder_only] = [path_dict]
 
-    with open(output_file, "w") as file:
+    with open(output_file, "w", newline="", encoding="utf-8") as file:
+        writer = csv.writer(file, delimiter="§", lineterminator="\r\n")
         for folder in sorted(folder_path_files_dict.keys()):
-            file.write(f"{folder}\n")
+            writer.writerow([folder])
             files = sorted(folder_path_files_dict[folder], key=lambda x: x['filename'])
             for entry in files:
                 folders = sorted(entry['folders'])
-                file.write(f"{entry['filename']}§{'§'.join(folders)}\n")
-            file.write("---\n")
+                writer.writerow([entry['filename'], *(folders or [""])])
+            writer.writerow(["---"])
 
 
 if __name__ == "__main__":
