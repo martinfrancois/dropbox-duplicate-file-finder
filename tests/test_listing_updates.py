@@ -134,3 +134,48 @@ def test_missing_or_invalid_metadata_path_preserves_index(path):
 
 def test_parent_iteration_terminates_for_relative_input():
     assert list(FileIndex.parents("relative")) == []
+
+
+@pytest.mark.parametrize("path", ["/new", "/original", "/original/child", "/tree"])
+def test_missing_content_hash_rejects_metadata_before_changing_index(path):
+    index = FileIndex(checkpoints.empty_checkpoint())
+    index.apply(file_entry("/original", HASH_A, 12))
+    index.apply(file_entry("/tree/child", HASH_B, 24))
+    before = {key: list(value) for key, value in index.paths.items()}
+    before_folders = set(index.folders)
+
+    with pytest.raises(checkpoints.CheckpointError, match="content_hash"):
+        index.apply(file_entry(path, None, 0))
+
+    assert index.paths == before
+    assert index.sizes == {HASH_A: 12, HASH_B: 24}
+    assert index.hash_by_path == {"/original": HASH_A, "/tree/child": HASH_B}
+    assert index.folders == before_folders
+    checkpoints.validate(index.checkpoint(None, complete=True))
+
+
+def test_missing_content_hash_stops_resume_without_retry_or_replacing_files(finder, monkeypatch, capsys):
+    state = checkpoints.load_checkpoint()
+    state.update(cursor="saved", complete=False)
+    checkpoints.write_checkpoint(state)
+    checkpoint_before = checkpoints.CHECKPOINT.read_bytes()
+    report_before = Path("duplicate_files.tsv").read_bytes()
+    calls = []
+
+    class MissingHash(FakeDropbox):
+        def files_list_folder_continue(self, cursor):
+            calls.append(cursor)
+            return dropbox.files.ListFolderResult(entries=[
+                file_entry("/new", HASH_A, 2048),
+                file_entry("/photos", None, 0),
+            ], cursor="next", has_more=False)
+
+    monkeypatch.setattr(dropbox, "Dropbox", lambda **kwargs: MissingHash())
+    with pytest.raises(SystemExit) as error:
+        finder.main(["--resume"])
+
+    assert error.value.code == 2
+    assert calls == ["saved"]
+    assert "content_hash" in capsys.readouterr().err
+    assert checkpoints.CHECKPOINT.read_bytes() == checkpoint_before
+    assert Path("duplicate_files.tsv").read_bytes() == report_before
