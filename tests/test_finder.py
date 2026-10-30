@@ -1,5 +1,6 @@
 import csv
 import importlib.util
+import time
 from pathlib import Path
 
 import dropbox
@@ -54,7 +55,7 @@ class FakeDropbox:
 @pytest.fixture
 def finder(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
-    (tmp_path / "backup").mkdir()
+    monkeypatch.setattr(time, "sleep", lambda _seconds: None)
     monkeypatch.setenv("DROPBOX_OAUTH2_ACCESS_TOKEN", "unused")
     monkeypatch.setenv("DROPBOX_OAUTH2_ACCESS_TOKEN_EXPIRATION", "2030-01-01T00:00:00")
     monkeypatch.setenv("DROPBOX_OAUTH2_REFRESH_TOKEN", "unused")
@@ -117,4 +118,9 @@ def test_retry_does_not_duplicate_files(finder, monkeypatch, api_error):
     assert finder.hash_to_path_dict[HASH_A] == [
         "/photos/img_0001.jpg", "/photos/2024/img_0001.jpg", "/backup/img_0001.jpg",
     ]
+    assert finder.count["file"] == 6
+
+
+def test_missing_backup_directory_is_created(finder, tmp_path):
+    assert (tmp_path / "backup" / "filtered_dict.txt").is_file()
     assert finder.count["file"] == 6
