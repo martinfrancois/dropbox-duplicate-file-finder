@@ -93,3 +93,28 @@ def test_only_lists_and_never_deletes(finder):
         ("files_list_folder", "", True),
         ("files_list_folder_continue", "cursor-1"),
     ]
+
+
+@pytest.mark.parametrize("api_error", [False, True])
+def test_retry_does_not_duplicate_files(finder, monkeypatch, api_error):
+    class InterruptedDropbox(FakeDropbox):
+        def __init__(self):
+            super().__init__()
+            self.interrupted = False
+
+        def files_list_folder_continue(self, cursor):
+            if not self.interrupted:
+                self.interrupted = True
+                if api_error:
+                    raise dropbox.exceptions.ApiError("test-request", dropbox.files.ListFolderError.path(
+                        dropbox.files.LookupError.not_found), None, None)
+                raise OSError("temporary connection failure")
+            return super().files_list_folder_continue(cursor)
+
+    finder.dbx = InterruptedDropbox()
+    monkeypatch.setattr(finder.time, "sleep", lambda _seconds: None)
+    finder.retry_with_backoff(lambda: finder.get_all_files(""))
+    assert finder.hash_to_path_dict[HASH_A] == [
+        "/photos/img_0001.jpg", "/photos/2024/img_0001.jpg", "/backup/img_0001.jpg",
+    ]
+    assert finder.count["file"] == 6
