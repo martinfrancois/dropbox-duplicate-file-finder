@@ -46,6 +46,8 @@ class FileIndex:
         root_folder = path == "" and isinstance(entry, (dropbox.files.FolderMetadata, dropbox.files.DeletedMetadata))
         if not root_folder and not checkpoints.valid_file_path(path):
             raise checkpoints.CheckpointError('cannot index Dropbox metadata "path_lower": expected a canonical absolute path; the last checkpoint is preserved')
+        if isinstance(entry, dropbox.files.FileMetadata) and not entry.content_hash:
+            raise checkpoints.CheckpointError('cannot index Dropbox metadata "content_hash": a content hash is required for comparison; the last checkpoint and report are preserved')
         if isinstance(entry, dropbox.files.DeletedMetadata):
             self.remove_subtree(path)
             return

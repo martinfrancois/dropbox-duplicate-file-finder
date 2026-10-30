@@ -73,6 +73,14 @@ The finder command changed from `python3 __init__.py` to `python3 find_duplicate
 
 ## Interrupted scans and recovery
 
+Dropbox metadata does not always include a content hash. If a file lacks one, the
+scan stops with status 2 before applying that entry and leaves the last checkpoint
+and existing report intact. It does not retry the same unsupported entry or treat
+unknown hashes as equal. The finder cannot compare that file until Dropbox provides
+a hash. Once it does, use `--resume` if a checkpoint exists, or start normally if
+none was saved. Otherwise, download or export the file and compare it separately;
+the interrupted scan has not produced a complete report of the account.
+
 The finder saves `backup/checkpoint.json` after every 3000 pages and after the last page. It contains a version, cursor, collected paths and sizes, current-file count, and completion flag in one atomic JSON replacement. Entries are applied in order: repeated paths update existing files, folder entries replace files while retaining children, and deletion entries remove paths and their subtrees. Counts describe the files currently present in the collected state. Saved entries have already been applied. Resume starts with the page after the saved cursor; it does not replay those entries:
 
 ```sh
