@@ -29,11 +29,11 @@ def test_reformat_groups_duplicates_by_folder(tmp_path):
         "path to folder§amount of duplicate files in folder§duplicate file count including all "
         "duplicate copies§folder size of duplicate files§folder size including all duplicate copies"
     )
-    archive = folder_line("/archive", REPORT_SIZE, copies=1)
-    backup = folder_line("/backup", IMAGE_SIZE, copies=2)
-    documents = folder_line("/documents", REPORT_SIZE, copies=1)
-    photos = folder_line("/photos", IMAGE_SIZE, copies=2)
-    photos_2024 = folder_line("/photos/2024", IMAGE_SIZE, copies=2)
+    archive = folder_line("/archive", REPORT_SIZE, copies=2)
+    backup = folder_line("/backup", IMAGE_SIZE, copies=3)
+    documents = folder_line("/documents", REPORT_SIZE, copies=2)
+    photos = folder_line("/photos", IMAGE_SIZE, copies=3)
+    photos_2024 = folder_line("/photos/2024", IMAGE_SIZE, copies=3)
     assert output.read_text().splitlines() == [
         header,
         archive,
@@ -121,3 +121,64 @@ def test_rclone_singleton_separator_name_is_not_a_block_terminator(tmp_path):
     reformat_rclone.process_duplicate_files(source, output)
     with output.open(newline="") as stream:
         assert list(csv.reader(stream, delimiter="§")) == [["folder"], ["---", ""], ["---"]]
+
+
+def test_summary_counts_each_copy_once_across_same_folder_content(tmp_path):
+    source = tmp_path / "input.tsv"
+    source.write_text(
+        "Hash\tSize\tPaths\n"
+        "a\t12\t/a/first\t/a/second\t/b/third\n"
+        "b\t7\t/a/different\t/b/copy\n"
+    )
+    output, summary = tmp_path / "full", tmp_path / "summary"
+    reformat.process_duplicate_files(source, output, summary)
+    with summary.open(newline="") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert rows[1:] == [
+        ["/a", "3", "5", f"{31 / GIB} GB", f"{50 / GIB} GB"],
+        ["/b", "2", "5", f"{19 / GIB} GB", f"{50 / GIB} GB"],
+    ]
+    with output.open(newline="") as stream:
+        detailed = list(csv.reader(stream, delimiter="§"))
+    assert rows[1] in detailed and rows[2] in detailed
+
+
+def test_summary_same_folder_pair_does_not_multiply_copies(tmp_path):
+    source = tmp_path / "input.tsv"
+    source.write_text("Hash\tSize\tPaths\nh\t12\t/a/one\t/a/two\n")
+    output, summary = tmp_path / "full", tmp_path / "summary"
+    reformat.process_duplicate_files(source, output, summary)
+    with summary.open(newline="") as stream:
+        assert list(csv.reader(stream, delimiter="§"))[1] == [
+            "/a", "2", "2", f"{24 / GIB} GB", f"{24 / GIB} GB"
+        ]
+
+
+def test_absolute_root_paths_have_root_folder_labels(tmp_path):
+    source, output, summary = [tmp_path / name for name in ("input", "full", "summary")]
+    source.write_text("Hash\tSize\tPaths\nh\t12\t/root§name.txt\t/dir/copy.txt\n")
+    reformat.process_duplicate_files(source, output, summary)
+    with summary.open(newline="") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert [row[0] for row in rows[1:]] == ["/", "/dir"]
+    with output.open(newline="") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert rows[2] == ["root§name.txt", "/dir/copy.txt"]
+    source.write_text("h  /root§name.txt\nh  /dir/copy.txt\n")
+    reformat_rclone.process_duplicate_files(source, output)
+    with output.open(newline="") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert rows == [
+        ["/"], ["root§name.txt", "/dir/copy.txt"], ["---"],
+        ["/dir"], ["copy.txt", "/root§name.txt"], ["---"],
+    ]
+
+
+def test_relative_root_paths_keep_filename(tmp_path):
+    source, output, summary = [tmp_path / name for name in ("input", "full", "summary")]
+    source.write_text("Hash\tSize\tPaths\nh\t12\troot.txt\tdir/copy.txt\n")
+    reformat.process_duplicate_files(source, output, summary)
+    with output.open(newline="") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert rows[1][0] == "/"
+    assert rows[2] == ["root.txt", "dir/copy.txt"]
