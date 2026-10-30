@@ -66,7 +66,8 @@ def finder(tmp_path, monkeypatch):
     spec = importlib.util.spec_from_file_location("finder", ROOT / "find_duplicates.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
-    module.main()
+    monkeypatch.setattr(module, "load_dotenv", lambda: False)
+    module.main([])
     return module
 
 
@@ -113,6 +114,7 @@ def test_retry_does_not_duplicate_files(finder, monkeypatch, api_error):
                 raise OSError("temporary connection failure")
             return super().files_list_folder_continue(cursor)
 
+    (Path("backup") / "checkpoint.json").unlink()
     finder.dbx = InterruptedDropbox()
     monkeypatch.setattr(finder.time, "sleep", lambda _seconds: None)
     finder.retry_with_backoff(lambda: finder.get_all_files(""))
@@ -123,5 +125,5 @@ def test_retry_does_not_duplicate_files(finder, monkeypatch, api_error):
 
 
 def test_missing_backup_directory_is_created(finder, tmp_path):
-    assert (tmp_path / "backup" / "filtered_dict.txt").is_file()
+    assert (tmp_path / "backup" / "checkpoint.json").is_file()
     assert finder.count["file"] == 6

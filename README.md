@@ -56,10 +56,35 @@ The tests run `find_duplicates.py` against a fake Dropbox client, so they need n
 
 The finder command changed from `python3 __init__.py` to `python3 find_duplicates.py`. Update existing shell scripts to use the named entry point.
 
+## Interrupted scans and recovery
+
+The finder saves `backup/checkpoint.json` after every 3000 pages and after the last page. It contains a version, cursor, collected paths and sizes, processed-file count, and completion flag in one atomic JSON replacement. Saved entries have already been counted. Resume starts with the page after the saved cursor; it does not replay those entries:
+
+```sh
+python3 find_duplicates.py --resume
+```
+
+An interruption loses only work since the latest checkpoint. If no checkpoint exists yet, run the normal command again. A completed checkpoint can regenerate `duplicate_files.tsv` without listing the account. The TSV also uses atomic replacement so an interrupted write does not replace an earlier complete report.
+
+Normal startup refuses to overwrite saved state. Invalid or expired checkpoints produce a diagnostic and remain intact. To start over, archive the entire backup directory and scan again:
+
+```sh
+python3 find_duplicates.py --restart
+```
+
+This moves the old directory to `backup.previous-<unique id>`. Keep or remove that archive yourself. Use the same account and app credentials when resuming. Only one finder process can run in a working directory; `.finder.lock` is a persistent lock file, not a checkpoint. The operating system releases its lock when the process exits, including after a crash.
+
+Older versions wrote two bz2-compressed pickle dictionaries plus `cursor.txt` and `entries.txt`. To migrate a complete set left by one completed checkpoint write:
+
+```sh
+python3 find_duplicates.py --resume-legacy
+```
+
+Migration reads only primitive dictionaries and the cursor through a restricted unpickler, validates their consistency, and derives the count from saved paths. `entries.txt` must exist, but its contents are not unpickled or replayed because that page was already processed. An empty old cursor marks a completed scan. All old files stay intact alongside the new JSON checkpoint. Old writes were not atomic across files, so the program cannot prove that they all came from the same moment. If they were copied from different runs or the write was interrupted, use `--restart` instead. New checkpoints avoid that ambiguity.
+
 ## Limitations
 
-- The script always walks the whole account from the root. To limit it to a folder, change `get_all_files("")` at the bottom of `find_duplicates.py`.
-- Nothing reads the backup files back in, so a crash after the last page loses the run.
+- The script walks the whole account from the root; folder-limited scans are not supported.
 - `reformat.py` writes sizes in GB as unrounded numbers.
 - A path that contains `§` breaks the columns of the reformatted output.
 

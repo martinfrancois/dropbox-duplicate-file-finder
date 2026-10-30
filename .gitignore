@@ -18,3 +18,8 @@ venv/
 /*-dropbox-duplicates-*.txt
 /rclone-duplicates.txt
 *.xlsx
+
+# Recovery archives and scan lock
+/backup.previous-*/
+/.finder.lock
+/.duplicates-*.tmp
