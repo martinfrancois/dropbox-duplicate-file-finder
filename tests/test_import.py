@@ -35,5 +35,6 @@ def test_explicit_cli_still_runs_finder(tmp_path, monkeypatch):
     monkeypatch.setenv("DROPBOX_OAUTH2_ACCESS_TOKEN_EXPIRATION", "2030-01-01T00:00:00")
     monkeypatch.setattr(dropbox, "Dropbox", FakeDropbox)
     monkeypatch.setattr(dotenv, "load_dotenv", lambda: False)
+    monkeypatch.setattr("sys.argv", ["find_duplicates.py"])
     runpy.run_path(str(ROOT / "find_duplicates.py"), run_name="__main__")
     assert (tmp_path / "duplicate_files.tsv").read_text().count("\n") == 3
