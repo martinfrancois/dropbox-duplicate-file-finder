@@ -73,7 +73,7 @@ The finder command changed from `python3 __init__.py` to `python3 find_duplicate
 
 ## Interrupted scans and recovery
 
-The finder saves `backup/checkpoint.json` after every 3000 pages and after the last page. It contains a version, cursor, collected paths and sizes, processed-file count, and completion flag in one atomic JSON replacement. Saved entries have already been counted. Resume starts with the page after the saved cursor; it does not replay those entries:
+The finder saves `backup/checkpoint.json` after every 3000 pages and after the last page. It contains a version, cursor, collected paths and sizes, current-file count, and completion flag in one atomic JSON replacement. Entries are applied in order: repeated paths update existing files, folder entries replace files while retaining children, and deletion entries remove paths and their subtrees. Counts describe the files currently present in the collected state. Saved entries have already been applied. Resume starts with the page after the saved cursor; it does not replay those entries:
 
 ```sh
 python3 find_duplicates.py --resume
