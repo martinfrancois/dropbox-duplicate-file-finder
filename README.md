@@ -7,7 +7,7 @@ The script only reads. Its only API calls are `files_list_folder` and `files_lis
 
 ## Files
 
-- `__init__.py`: The main script. It writes the duplicates to `duplicate_files.tsv`, one row per content hash with the size in bytes and all paths, and saves its state to `backup/` along the way.
+- `find_duplicates.py`: The main script. It writes the duplicates to `duplicate_files.tsv`, one row per content hash with the size in bytes and all paths, and saves its state to `backup/` along the way.
 - `reformat.py`: A script to reformat the output of the main script into a format that can be read into Excel using `§` as a delimiter. It writes `<date>-dropbox-duplicates-formatted.txt`, with one block per folder that holds duplicates, and `<date>-dropbox-duplicates-formatted-summary.txt`, with only the totals per folder.
 - `reformat_rclone.py`: A script to reformat the output of running `rclone hashsum dropbox Dropbox:/ | sort | uniq -w32 -dD > rclone-duplicates.txt` the same way, without sizes, into `<date>-dropbox-duplicates-rclone-formatted.txt`.
 
@@ -26,7 +26,7 @@ pip3 install -r requirements.txt
 4. Run the script. It creates the folder for its state files:
 
 ```
-python3 __init__.py
+python3 find_duplicates.py
 ```
 
 The duplicates end up in `duplicate_files.tsv`.
@@ -49,14 +49,16 @@ In the formatted file, the `/archive` block has the line `report.pdf§/documents
 
 ```
 pip3 install -r requirements-dev.txt
-python3 -m pytest tests
+python3 -m pytest
 ```
 
-The tests run `__init__.py` against a fake Dropbox client, so they need no account and no network. Pass `tests` explicitly, because otherwise pytest imports the root `__init__.py` and runs the script. Tracked in [#2](https://github.com/martinfrancois/dropbox-duplicate-file-finder/issues/2).
+The tests run `find_duplicates.py` against a fake Dropbox client, so they need no account or network. Importing the module does not load credentials, create a client, or write files.
+
+The finder command changed from `python3 __init__.py` to `python3 find_duplicates.py`. Update existing shell scripts to use the named entry point.
 
 ## Limitations
 
-- The script always walks the whole account from the root. To limit it to a folder, change `get_all_files("")` at the bottom of `__init__.py`.
+- The script always walks the whole account from the root. To limit it to a folder, change `get_all_files("")` at the bottom of `find_duplicates.py`.
 - Nothing reads the backup files back in, so a crash after the last page loses the run.
 - `reformat.py` writes sizes in GB as unrounded numbers.
 - A path that contains `§` breaks the columns of the reformatted output.

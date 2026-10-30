@@ -63,9 +63,10 @@ def finder(tmp_path, monkeypatch):
     monkeypatch.setenv("DROPBOX_APP_SECRET", "unused")
     monkeypatch.setattr(dropbox, "Dropbox", FakeDropbox)
 
-    spec = importlib.util.spec_from_file_location("finder", ROOT / "__init__.py")
+    spec = importlib.util.spec_from_file_location("finder", ROOT / "find_duplicates.py")
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
+    module.main()
     return module
 
 
