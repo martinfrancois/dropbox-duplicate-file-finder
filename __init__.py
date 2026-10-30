@@ -76,6 +76,10 @@ def backup(cursor, entries):
 
 # Define a function to get all the files in a folder
 def get_all_files(folder_path):
+    # A retry starts at the root, so results from the earlier attempt must not survive.
+    hash_to_path_dict.clear()
+    hash_to_size_dict.clear()
+    count["file"] = 0
     start = time.time()
     # Get all the folder's metadata and the entries recursively, to retrieve all files in all subfolders
     result = dbx.files_list_folder(folder_path, recursive=True)
@@ -140,15 +144,6 @@ def retry_with_backoff(fn, retries=5, backoff_in_seconds=1):
         try:
             # Try to execute the function and return the result
             return fn()
-        except dropbox.exceptions.ApiError as e:
-            # If the exception is a rate limit error, wait for the retry_after seconds
-            if e.error.is_rate_limit():
-                retry_after = e.error.get_rate_limit().retry_after
-                print(f"Rate limit exceeded, retrying after {retry_after} seconds")
-                time.sleep(retry_after)
-            # Otherwise, raise the exception
-            else:
-                raise e
         except Exception as e:
             # If the exception is any other error, calculate the delay using exponential backoff with jitter
             delay = (backoff_in_seconds * 2 ** attempts) + random.uniform(0, 1)
