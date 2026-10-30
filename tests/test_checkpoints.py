@@ -238,3 +238,15 @@ def test_legacy_completed_checkpoint_restores_count_without_listing(finder, monk
     finder.main(["--resume-legacy"])
     assert finder.count["file"] == 6
     assert checkpoints.load_checkpoint() == state
+
+
+@pytest.mark.parametrize("path", ["relative", "/", "/trailing/", "/a/../b", "/a//b", "/a/./b"])
+def test_invalid_absolute_path_is_rejected_before_resume(finder, path):
+    state = partial_state()
+    state["paths"][HASH_A][0] = path
+    checkpoints.CHECKPOINT.write_text(json.dumps(state))
+    before = checkpoints.CHECKPOINT.read_bytes()
+    with pytest.raises(SystemExit) as error:
+        finder.main(["--resume"])
+    assert error.value.code == 2
+    assert checkpoints.CHECKPOINT.read_bytes() == before

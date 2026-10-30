@@ -9,6 +9,7 @@ import argparse
 import tempfile
 
 import checkpoints
+from file_index import FileIndex
 from dotenv import load_dotenv
 
 BACKUP_EVERY_X_FETCHES = 3000
@@ -23,20 +24,6 @@ hash_to_size_dict = {}
 count = {"file": 0}
 
 
-def add_entry(entry):
-    file_hash = entry.content_hash
-    file_path = entry.path_lower
-
-    hash_to_size_dict[file_hash] = entry.size
-
-    # If the content hash is already in the dictionary, append the file path to the list
-    if file_hash in hash_to_path_dict:
-        hash_to_path_dict[file_hash].append(file_path)
-    # Otherwise, create a new entry with the content hash and the file path
-    else:
-        hash_to_path_dict[file_hash] = [file_path]
-
-
 def processing_stats(start):
     end = time.time()
     print(f"Files processed per second on average: {count['file'] / (end - start)}")
@@ -46,10 +33,11 @@ def get_all_files(folder_path):
     if folder_path != "":
         raise ValueError('cannot scan folder: checkpoint recovery currently supports the account root only')
     state = checkpoints.load_checkpoint() if checkpoints.CHECKPOINT.exists() else checkpoints.empty_checkpoint()
+    index = FileIndex(state)
     hash_to_path_dict.clear()
-    hash_to_path_dict.update(state["paths"])
+    hash_to_path_dict.update(index.paths)
     hash_to_size_dict.clear()
-    hash_to_size_dict.update(state["sizes"])
+    hash_to_size_dict.update(index.sizes)
     count["file"] = state["count"]
     if state["complete"]:
         return
@@ -64,17 +52,19 @@ def get_all_files(folder_path):
                 raise checkpoints.CheckpointError('cannot resume checkpoint "backup/checkpoint.json": Dropbox expired the cursor; use --restart to preserve it and scan again') from error
             raise
         for entry in result.entries:
-            if isinstance(entry, dropbox.files.FileMetadata):
-                count["file"] += 1
-                add_entry(entry)
+            index.apply(entry)
         fetch_count += 1
         cursor = result.cursor if result.has_more else None
         if fetch_count % BACKUP_EVERY_X_FETCHES == 0 or not result.has_more:
-            state.update(paths=hash_to_path_dict, sizes=hash_to_size_dict, count=count["file"],
-                         cursor=cursor, complete=not result.has_more)
+            state = index.checkpoint(cursor, complete=not result.has_more)
             checkpoints.write_checkpoint(state)
         if not result.has_more:
             break
+    hash_to_path_dict.clear()
+    hash_to_path_dict.update(index.paths)
+    hash_to_size_dict.clear()
+    hash_to_size_dict.update(index.sizes)
+    count["file"] = len(index.hash_by_path)
     processing_stats(start)
     print("Finished get_all_files")
 

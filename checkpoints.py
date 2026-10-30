@@ -28,31 +28,36 @@ def empty_checkpoint():
             "cursor": None, "complete": False}
 
 
+def valid_file_path(path):
+    return (isinstance(path, str) and path.startswith("/")
+            and all(part not in ("", ".", "..") for part in path.split("/")[1:]))
+
+
 def validate(state):
     if not isinstance(state, dict) or set(state) != set(empty_checkpoint()):
-        raise ValueError("checkpoint fields do not match version 1")
+        raise ValueError('cannot read checkpoint "fields": expected the complete version 1 field set')
     if type(state["version"]) is not int or state["version"] != 1 or state["folder"] != "":
-        raise ValueError("unsupported checkpoint version or folder")
+        raise ValueError('cannot read checkpoint "version/folder": expected version 1 and the account root')
     paths, sizes = state["paths"], state["sizes"]
     if not isinstance(paths, dict) or not isinstance(sizes, dict) or paths.keys() != sizes.keys():
-        raise ValueError("hash and size mappings disagree")
+        raise ValueError('cannot read checkpoint "paths/sizes": expected matching content-hash keys')
     seen = set()
     for content_hash, group in paths.items():
         if not isinstance(content_hash, str) or not content_hash or not isinstance(group, list) or not group:
-            raise ValueError("invalid content hash or path group")
+            raise ValueError('cannot read checkpoint "paths": expected a nonempty hash and path list')
         if type(sizes[content_hash]) is not int or sizes[content_hash] < 0:
-            raise ValueError("file sizes must be nonnegative integers")
+            raise ValueError('cannot read checkpoint "sizes": expected a nonnegative integer')
         for path in group:
-            if not isinstance(path, str) or not path or path in seen:
-                raise ValueError("paths must be nonempty and occur exactly once")
+            if not valid_file_path(path) or path in seen:
+                raise ValueError('cannot read checkpoint "paths": expected canonical absolute file paths occurring exactly once')
             seen.add(path)
     if type(state["count"]) is not int or state["count"] != len(seen):
-        raise ValueError("processed-file count disagrees with paths")
+        raise ValueError('cannot read checkpoint "count": expected the number of current paths')
     cursor, complete = state["cursor"], state["complete"]
     if type(complete) is not bool or (cursor is not None and (not isinstance(cursor, str) or not cursor)):
-        raise ValueError("invalid completion flag or cursor")
+        raise ValueError('cannot read checkpoint "cursor/complete": expected a nonempty cursor or null and a boolean completion flag')
     if complete and cursor is not None or not complete and cursor is None and seen:
-        raise ValueError("cursor does not describe the saved progress")
+        raise ValueError('cannot read checkpoint "cursor/complete": expected a cursor for partial results and no cursor for completed results')
     return state
 
 
@@ -82,7 +87,7 @@ def write_checkpoint(state):
 
 class _DataOnlyUnpickler(pickle.Unpickler):
     def find_class(self, module, name):
-        raise ValueError("legacy checkpoint contains executable objects")
+        raise ValueError('cannot read legacy checkpoint "object": expected primitive data without executable classes')
 
 
 def migrate_legacy_checkpoint():
@@ -91,7 +96,7 @@ def migrate_legacy_checkpoint():
         raise CheckpointError('cannot migrate checkpoint "backup": checkpoint.json already exists; use --resume or --restart')
     try:
         if not all((DIRECTORY / name).is_file() for name in LEGACY_FILES):
-            raise ValueError("legacy checkpoint set is incomplete")
+            raise ValueError('cannot migrate legacy checkpoint "backup": expected all four checkpoint files')
         with bz2.open(DIRECTORY / LEGACY_FILES[0], "rb") as source:
             paths = _DataOnlyUnpickler(source).load()
         with bz2.open(DIRECTORY / LEGACY_FILES[1], "rb") as source:
@@ -99,7 +104,7 @@ def migrate_legacy_checkpoint():
         with (DIRECTORY / "cursor.txt").open("rb") as source:
             cursor = _DataOnlyUnpickler(source).load()
         if not isinstance(cursor, str):
-            raise ValueError("legacy cursor must be a string")
+            raise ValueError('cannot migrate legacy checkpoint "cursor.txt": expected a string')
         state = empty_checkpoint()
         state.update(paths=paths, sizes=sizes, count=sum(len(group) for group in paths.values()),
                      cursor=cursor or None, complete=cursor == "")
