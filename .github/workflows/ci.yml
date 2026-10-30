@@ -22,7 +22,7 @@ jobs:
           cache: pip
           cache-dependency-path: requirements-dev.txt
       - run: python -m pip install -r requirements-dev.txt
-      - run: python -m pytest tests
+      - run: python -m pytest
       # The tests check the output, so this step only runs the README example end to end.
       - name: Run the documented synthetic example
         run: |

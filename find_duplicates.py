@@ -11,16 +11,7 @@ from dotenv import load_dotenv
 
 BACKUP_EVERY_X_FETCHES = 3000
 
-# Load environment variables from .env file
-load_dotenv()
-
-# Create a Dropbox object using an access token
-dbx = dropbox.Dropbox(
-    oauth2_access_token=(os.getenv("DROPBOX_OAUTH2_ACCESS_TOKEN")),
-    oauth2_access_token_expiration=datetime.datetime.fromisoformat(os.getenv("DROPBOX_OAUTH2_ACCESS_TOKEN_EXPIRATION")),
-    oauth2_refresh_token=(os.getenv("DROPBOX_OAUTH2_REFRESH_TOKEN")),
-    app_key=(os.getenv("DROPBOX_APP_KEY")),
-    app_secret=(os.getenv("DROPBOX_APP_SECRET")))
+dbx = None
 
 # Initialize an empty dictionary to store the content hashes and the file paths
 hash_to_path_dict = {}
@@ -155,16 +146,23 @@ def retry_with_backoff(fn, retries=5, backoff_in_seconds=1):
     raise Exception(f"Maximum number of retries ({retries}) exceeded")
 
 
-os.makedirs("backup", exist_ok=True)
+def main():
+    global dbx, duplicate_files
+    load_dotenv()
+    dbx = dropbox.Dropbox(
+        oauth2_access_token=os.getenv("DROPBOX_OAUTH2_ACCESS_TOKEN"),
+        oauth2_access_token_expiration=datetime.datetime.fromisoformat(
+            os.getenv("DROPBOX_OAUTH2_ACCESS_TOKEN_EXPIRATION")),
+        oauth2_refresh_token=os.getenv("DROPBOX_OAUTH2_REFRESH_TOKEN"),
+        app_key=os.getenv("DROPBOX_APP_KEY"),
+        app_secret=os.getenv("DROPBOX_APP_SECRET"),
+    )
+    os.makedirs("backup", exist_ok=True)
+    retry_with_backoff(lambda: get_all_files(""))
+    duplicate_files = find_duplicate_files()
+    save_duplicate_files("duplicate_files.tsv")
+    print("The duplicate files have been saved to duplicate_files.tsv")
 
-# Get all the files in the root folder using retry with exponential backoff
-retry_with_backoff(lambda: get_all_files(""))
 
-# Find the duplicate files
-duplicate_files = find_duplicate_files()
-
-# Save the duplicate files to a tsv file
-save_duplicate_files("duplicate_files.tsv")
-
-# Print a message to indicate the completion of the task
-print("The duplicate files have been saved to duplicate_files.tsv")
+if __name__ == "__main__":
+    main()
