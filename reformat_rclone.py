@@ -18,18 +18,8 @@ def process_duplicate_files(input_file, output_file):
     # Write the output to the specified file
     for hash_value, paths in hash_dict.items():
         for path in paths:
-            split_path = path.rsplit('/', 1)
-            if len(split_path) > 2 or len(split_path) < 1:
-                # should never happen
-                breakpoint()
-            folder_only = split_path[0]
-            file_only = None
-            if len(split_path) == 1:
-                # file at root level
-                file_only = folder_only
-                folder_only = '/'
-            else:
-                file_only = split_path[1]
+            folder_only, _, file_only = path.rpartition('/')
+            folder_only = folder_only or '/'
             file_paths = [file_path for file_path in paths if file_path != path]
             path_dict = {"filename": file_only, "folders": file_paths}
             if folder_only in folder_path_files_dict:

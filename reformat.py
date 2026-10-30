@@ -24,20 +24,10 @@ def process_duplicate_files(input_file, output_file, summary_output_file):
     # Write the output to the specified file
     for hash_value, paths in hash_path_dict.items():
         for path in paths:
-            split_path = path.rsplit('/', 1)
-            if len(split_path) > 2 or len(split_path) < 1:
-                # should never happen
-                breakpoint()
-            folder_only = split_path[0]
-            file_only = None
-            if len(split_path) == 1:
-                # file at root level
-                file_only = folder_only
-                folder_only = '/'
-            else:
-                file_only = split_path[1]
+            folder_only, _, file_only = path.rpartition('/')
+            folder_only = folder_only or '/'
             file_paths = [file_path for file_path in paths if file_path != path]
-            path_dict = {"filename": file_only, "size": hash_size_dict[hash_value], "folders": file_paths}
+            path_dict = {"filename": file_only, "hash": hash_value, "size": hash_size_dict[hash_value], "folders": file_paths}
             if folder_only in folder_path_files_dict:
                 folder_path_files_dict[folder_only].append(path_dict)
             else:
@@ -55,9 +45,12 @@ def process_duplicate_files(input_file, output_file, summary_output_file):
             for folder in sorted(folder_path_files_dict.keys()):
                 files = sorted(folder_path_files_dict[folder], key=lambda x: x['filename'])
                 file_count = len(files)
-                file_count_with_duplicates = sum([len(f["folders"]) for f in files])
+                folder_hashes = {entry["hash"] for entry in files}
+                file_count_with_duplicates = sum(len(hash_path_dict[value]) for value in folder_hashes)
                 folder_size_unique = bytes_to_gigabytes(sum([int(f["size"]) for f in files]))
-                folder_size_with_duplicates = bytes_to_gigabytes(sum([int(f["size"]) * len(f["folders"]) for f in files]))
+                folder_size_with_duplicates = bytes_to_gigabytes(sum(
+                    int(hash_size_dict[value]) * len(hash_path_dict[value]) for value in folder_hashes
+                ))
                 summary_row = [folder, file_count, file_count_with_duplicates,
                                f"{folder_size_unique} GB", f"{folder_size_with_duplicates} GB"]
                 writer.writerow(summary_row)

@@ -60,6 +60,13 @@ The summary report has five columns on every record, including the header. The d
 
 Simple filenames and paths keep their existing field values. Record endings are now standard CSV CRLF; consumers that require the previous LF byte format must normalize record endings after parsing. The Dropbox input is tab-delimited CSV as written by the finder, including quoted tabs and line breaks. Rclone input remains one hash, two spaces, and a path per physical line, so it cannot represent embedded line breaks. Leading and trailing spaces in those paths are retained.
 
+The local count and size include the duplicate files physically in that folder.
+The columns including all copies count every path for the content hashes found
+in that folder, including its own files. Each hash is counted once per folder,
+even when the folder contains several copies. For example, two 12-byte copies
+in `/a` and one in `/b` give `/a` a local count of 2 and size of 24 bytes, and
+all-copy totals of 3 files and 36 bytes. Root-level files use `/` as their folder.
+
 ## Tests
 
 ```
