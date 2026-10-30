@@ -45,6 +45,21 @@ python3 reformat_rclone.py
 
 In the formatted file, the `/archive` block has the line `report.pdf§/documents/report.pdf`, which means that `/archive/report.pdf` has a copy at `/documents/report.pdf`.
 
+## Reading formatted reports
+
+Both formatters write UTF-8 CSV records with `§` as the delimiter and `"` as the quote character. Fields containing a separator, quote, or line break are quoted; embedded quotes are doubled. Do not parse these reports with `split("§")` or split them into physical lines first. For example:
+
+```python
+import csv
+
+with open("report.txt", newline="", encoding="utf-8") as report:
+    rows = list(csv.reader(report, delimiter="§"))
+```
+
+The summary report has five columns on every record, including the header. The detailed Dropbox report starts with that header, then repeats a five-column folder summary, file records containing a filename and its duplicate paths, and a single-field `---` record. The rclone report has a one-field folder record instead of a summary/header. Read the folder record at the start of each block; subsequent file records always have at least two fields, so a filename `---` is not a block terminator.
+
+Simple filenames and paths keep their existing field values. Record endings are now standard CSV CRLF; consumers that require the previous LF byte format must normalize record endings after parsing. The Dropbox input is tab-delimited CSV as written by the finder, including quoted tabs and line breaks. Rclone input remains one hash, two spaces, and a path per physical line, so it cannot represent embedded line breaks. Leading and trailing spaces in those paths are retained.
+
 ## Tests
 
 ```
@@ -86,7 +101,6 @@ Migration reads only primitive dictionaries and the cursor through a restricted 
 
 - The script walks the whole account from the root; folder-limited scans are not supported.
 - `reformat.py` writes sizes in GB as unrounded numbers.
-- A path that contains `§` breaks the columns of the reformatted output.
 
 ## License
 

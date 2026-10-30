@@ -1,3 +1,5 @@
+import csv
+
 from pathlib import Path
 
 import reformat
@@ -75,3 +77,47 @@ def test_reformat_rclone_groups_duplicates_by_folder(tmp_path):
         "img_0001.jpg§backup/img_0001.jpg§photos/img_0001.jpg",
         "---",
     ]
+
+
+def test_section_separator_quotes_and_newlines_round_trip_from_tsv(tmp_path):
+    paths = ['/folder§name/a"§file.txt', '/other/a"§file.txt', '/line\nbreak\rreturn/a"§file.txt']
+    source = tmp_path / "input.tsv"
+    with source.open("w", newline="", encoding="utf-8") as stream:
+        writer = csv.writer(stream, delimiter="\t")
+        writer.writerow(["Hash", "Size", "Paths"])
+        writer.writerow(["same-hash", 12, *paths])
+    output, summary = tmp_path / "formatted.txt", tmp_path / "summary.txt"
+    reformat.process_duplicate_files(source, output, summary)
+    with summary.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    assert all(len(row) == 5 for row in rows)
+    assert [row[0] for row in rows[1:]] == ['/folder§name', '/line\nbreak\rreturn', '/other']
+    with output.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    for block, path in enumerate(sorted(paths)):
+        assert rows[1 + block * 3][0] == path.rsplit('/', 1)[0]
+        assert rows[2 + block * 3] == ['a"§file.txt', *sorted(other for other in paths if other != path)]
+        assert rows[3 + block * 3] == ["---"]
+
+
+def test_rclone_quotes_separators_and_keeps_path_whitespace(tmp_path):
+    paths = ['folder§name/a"§file.txt ', 'other/a"§file.txt ', 'third/a"§file.txt ']
+    source = tmp_path / "rclone.txt"
+    source.write_text(''.join(f'hash  {path}\n' for path in paths), encoding="utf-8")
+    output = tmp_path / "formatted.txt"
+    reformat_rclone.process_duplicate_files(source, output)
+    with output.open(newline="", encoding="utf-8") as stream:
+        rows = list(csv.reader(stream, delimiter="§"))
+    for block, path in enumerate(paths):
+        assert rows[block * 3] == [path.rsplit('/', 1)[0]]
+        assert rows[1 + block * 3] == ['a"§file.txt ', *sorted(other for other in paths if other != path)]
+        assert rows[2 + block * 3] == ["---"]
+
+
+def test_rclone_singleton_separator_name_is_not_a_block_terminator(tmp_path):
+    source = tmp_path / "rclone.txt"
+    source.write_text("hash  folder/---\n")
+    output = tmp_path / "formatted.txt"
+    reformat_rclone.process_duplicate_files(source, output)
+    with output.open(newline="") as stream:
+        assert list(csv.reader(stream, delimiter="§")) == [["folder"], ["---", ""], ["---"]]
