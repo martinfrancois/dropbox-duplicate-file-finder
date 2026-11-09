@@ -1,0 +1,31 @@
+name: Bug report
+description: Report something that doesn't work as documented.
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: Leave out tokens, app keys, `.env` contents, real Dropbox paths and personal data, also from logs and screenshots.
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: What you saw, and what you expected instead.
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: The script and options you ran (for example `python3 find_duplicates.py --resume` or `python3 reformat.py`), ideally with a small invented input file that shows the problem.
+    validations:
+      required: true
+  - type: textarea
+    id: environment
+    attributes:
+      label: Environment
+      description: Commit you ran, Python version, operating system, and anything else that matters here.
+  - type: textarea
+    id: logs
+    attributes:
+      label: Output or logs
+      render: text
